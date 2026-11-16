@@ -1631,12 +1631,12 @@ async function stUpload(gif,slot,fsz){const crc=crc32(gif),FS=fsz||SB.up||4096;l
     const early=[];let r=null;const lim=tW+3000+ch.length/5;
     while(performance.now()<lim){r=SB.n3.slice(k0).find(x=>!x.used&&x.t>=(SB.lastT||0)-2);if(r)break;await sleep(15)}
     if(r)r.used=true;
-    stLog('  piece '+pc+' ('+ch.length+' bytes'+(last?', last':'')+(big?', paced '+(SB.pace||35)+' ms':'')+'): sent in '+Math.round(tW-tA)+' ms; '+(early.length?early.length+' replies while sending ['+early.map(x=>x.status+'@'+Math.round(x.t-tA)).join(' ')+']; ':'')+(r?'reply '+hex(r.v)+' after '+Math.round(r.t-tW)+' ms':'no reply'));
+    stLog('  piece '+pc+' ('+ch.length+' bytes'+(last?', last':'')+(big?', paced '+(SB.pace||35)+' ms, pause '+(SB.wgap||600)+' ms':'')+'): sent in '+Math.round(tW-tA)+' ms; '+(early.length?early.length+' replies while sending ['+early.map(x=>x.status+'@'+Math.round(x.t-tA)).join(' ')+']; ':'')+(r?'reply '+hex(r.v)+' after '+Math.round(r.t-tW)+' ms':'no reply'));
     if(last&&r&&r.status===1){stLog('  waiting up to 8 s for a final reply…');const l2=performance.now()+8000;let r2=null;while(performance.now()<l2){r2=SB.n3.find(x=>x.t>r.t&&x.status!==1);if(r2)break;await sleep(30)}
       const more=SB.n3.filter(x=>x.t>r.t);stLog('  after the last piece: '+(more.length?more.map(x=>x.status+'@'+Math.round(x.t-tW)).join(' '):'nothing'));if(r2)r=r2}
     if(!r)return{ok:false,why:'no reply from the strip'};if(r.status===0)return{ok:false,why:'the strip rejected piece '+pc};
     off+=ch.length;first=false;if(off>=gif.length){SB.tEnd=performance.now();return{ok:r.status===3,status:r.status,why:'the last reply was status '+r.status+' instead of 3'}}
-    await sleep(SB.gap||0)}
+    await sleep(gif.length>FS?(SB.wgap||600):(SB.gap||0))}
   return{ok:false,why:'empty'}}
 const stOpt=()=>({k:+$('stG').querySelector('[aria-pressed=true]').dataset.v,d:+$('stD').querySelector('[aria-pressed=true]').dataset.v,kind:$('stC').querySelector('[aria-pressed=true]').dataset.v});
 async function stGifTest(){const o=stOpt(),k=o.k;
