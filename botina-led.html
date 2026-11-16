@@ -1560,7 +1560,7 @@ function stOnNote(e){const dv=e.target.value,v=new Uint8Array(dv.buffer.slice(dv
   if(i>=0){const w=SB.waiters.splice(i,1)[0];clearTimeout(w.t);w.res({cmd,status:v[4],v})}else{SB.late={cmd,status:v[4],v,at:performance.now()};if(cmd===3&&SB.tEnd&&(SB.xl=(SB.xl||0)+1)<=8)stLog('  extra reply '+v[4]+' at '+((performance.now()-SB.tEnd)/1000).toFixed(2)+' s after the upload ended')}}
 const waitAck=(cmd,ms)=>new Promise(res=>{const w={cmd,res};w.t=setTimeout(()=>{const i=SB.waiters.indexOf(w);if(i>=0)SB.waiters.splice(i,1);res(null)},ms);SB.waiters.push(w)});
 async function stWrite(u8,pace,safe){const wr=SB.wr;if(!wr)throw new Error('Not connected');const c=safe?244:SB.chunk;
-  for(let i=0;i<u8.length;i+=c){const p=u8.subarray(i,i+c);if(safe&&wr.writeValueWithResponse)await wr.writeValueWithResponse(p);else if(wr.writeValueWithoutResponse&&!SB.resp&&!safe)await wr.writeValueWithoutResponse(p);else await wr.writeValue(p);if(pace)await sleep(pace)}}
+  for(let i=0;i<u8.length;i+=c){const p=u8.subarray(i,i+c);if(i+c>=u8.length)SB.lastT=performance.now();if(safe&&wr.writeValueWithResponse)await wr.writeValueWithResponse(p);else if(wr.writeValueWithoutResponse&&!SB.resp&&!safe)await wr.writeValueWithoutResponse(p);else await wr.writeValue(p);if(pace)await sleep(pace)}}
 async function stCmd(bytes,ackCmd,ms){const a=ackCmd!=null?waitAck(ackCmd,ms||800):null;await stWrite(Uint8Array.from(bytes));return a?await a:null}
 async function stConnect(all){
   if(!navigator.bluetooth){stStatus('This view has no Bluetooth. Open the page in Bluefy.');return}
@@ -1627,11 +1627,11 @@ function testFrames(k,kind){const fr=[],b=mkBuf();for(let n=0;n<k;n++){b.fill(0)
 async function stUpload(gif,slot,fsz){const crc=crc32(gif),FS=fsz||SB.up||4096;let off=0,first=true,pc=0;const T0=performance.now();SB.n3=[];SB.xl=0;SB.tEnd=0;
   while(off<gif.length){const ch=gif.subarray(off,off+FS),pk=new Uint8Array(15+ch.length),dv=new DataView(pk.buffer);
     dv.setUint16(0,pk.length,true);dv.setUint16(2,3,true);pk[4]=first?0:2;dv.setUint32(5,gif.length,true);dv.setUint32(9,crc,true);pk[13]=2;pk[14]=slot;pk.set(ch,15);
-    const k0=SB.n3.length,tA=performance.now();const safe=gif.length>FS;await stWrite(pk,0,safe);const tW=performance.now();pc++;const last=off+ch.length>=gif.length;
+    const k0=SB.n3.length,tA=performance.now();const big=gif.length>FS,safe=false;await stWrite(pk,big?(SB.pace||35):0,false);const tW=performance.now();pc++;const last=off+ch.length>=gif.length;
     const early=[];let r=null;const lim=tW+3000+ch.length/5;
-    while(performance.now()<lim){r=SB.n3.slice(k0).find(x=>!x.used);if(r)break;await sleep(15)}
+    while(performance.now()<lim){r=SB.n3.slice(k0).find(x=>!x.used&&x.t>=(SB.lastT||0)-2);if(r)break;await sleep(15)}
     if(r)r.used=true;
-    stLog('  piece '+pc+' ('+ch.length+' bytes'+(last?', last':'')+(safe?', confirmed':'')+'): sent in '+Math.round(tW-tA)+' ms; '+(early.length?early.length+' replies while sending ['+early.map(x=>x.status+'@'+Math.round(x.t-tA)).join(' ')+']; ':'')+(r?'reply '+hex(r.v)+' after '+Math.round(r.t-tW)+' ms':'no reply'));
+    stLog('  piece '+pc+' ('+ch.length+' bytes'+(last?', last':'')+(big?', paced '+(SB.pace||35)+' ms':'')+'): sent in '+Math.round(tW-tA)+' ms; '+(early.length?early.length+' replies while sending ['+early.map(x=>x.status+'@'+Math.round(x.t-tA)).join(' ')+']; ':'')+(r?'reply '+hex(r.v)+' after '+Math.round(r.t-tW)+' ms':'no reply'));
     if(last&&r&&r.status===1){stLog('  waiting up to 8 s for a final reply…');const l2=performance.now()+8000;let r2=null;while(performance.now()<l2){r2=SB.n3.find(x=>x.t>r.t&&x.status!==1);if(r2)break;await sleep(30)}
       const more=SB.n3.filter(x=>x.t>r.t);stLog('  after the last piece: '+(more.length?more.map(x=>x.status+'@'+Math.round(x.t-tW)).join(' '):'nothing'));if(r2)r=r2}
     if(!r)return{ok:false,why:'no reply from the strip'};if(r.status===0)return{ok:false,why:'the strip rejected piece '+pc};
