@@ -1559,7 +1559,7 @@ function stOnNote(e){const dv=e.target.value,v=new Uint8Array(dv.buffer.slice(dv
   const cmd=v[2]|v[3]<<8,i=SB.waiters.findIndex(w=>w.cmd===cmd);
   if(i>=0){const w=SB.waiters.splice(i,1)[0];clearTimeout(w.t);w.res({cmd,status:v[4],v})}else{SB.late={cmd,status:v[4],v,at:performance.now()};if(cmd===3&&SB.tEnd&&(SB.xl=(SB.xl||0)+1)<=8)stLog('  extra reply '+v[4]+' at '+((performance.now()-SB.tEnd)/1000).toFixed(2)+' s after the upload ended')}}
 const waitAck=(cmd,ms)=>new Promise(res=>{const w={cmd,res};w.t=setTimeout(()=>{const i=SB.waiters.indexOf(w);if(i>=0)SB.waiters.splice(i,1);res(null)},ms);SB.waiters.push(w)});
-async function stWrite(u8,pace,safe){const wr=SB.wr;if(!wr)throw new Error('Not connected');const c=safe?Math.min(SB.chunk,180):SB.chunk;
+async function stWrite(u8,pace,safe){const wr=SB.wr;if(!wr)throw new Error('Not connected');const c=safe?244:SB.chunk;
   for(let i=0;i<u8.length;i+=c){const p=u8.subarray(i,i+c);if(safe&&wr.writeValueWithResponse)await wr.writeValueWithResponse(p);else if(wr.writeValueWithoutResponse&&!SB.resp&&!safe)await wr.writeValueWithoutResponse(p);else await wr.writeValue(p);if(pace)await sleep(pace)}}
 async function stCmd(bytes,ackCmd,ms){const a=ackCmd!=null?waitAck(ackCmd,ms||800):null;await stWrite(Uint8Array.from(bytes));return a?await a:null}
 async function stConnect(all){
@@ -1704,7 +1704,7 @@ async function smpStore(i){
     if(!r.fit){stLog('Pad '+(i+1)+': still '+r.gif.length+' bytes, too big for a safe upload. Not stored.');smpUi('Pad '+(i+1)+' is too detailed for the strip’s memory. Try a shorter loop.');SMP.busy=false;smpSave();return false}
     smpUi('Storing pad '+(i+1)+'…');await stIdle();await stLive(false);
     stLog('\n--- Sampler pad '+(i+1)+': “'+smpName(d)+'”, '+r.n+' frames, '+r.dc*10+' ms each, loop '+r.secs.toFixed(2)+' s, '+r.gif.length+' bytes → slot '+(i+1));
-    const u=await stUpload(r.gif,i+1,r.gif.length>SMP_MAX?4096:65535);p.ok=!!u.ok;stLog(u.ok?'Stored.':'Failed: '+u.why);
+    const u=await stUpload(r.gif,i+1,r.gif.length>SMP_MAX?12288:65535);p.ok=!!u.ok;stLog(u.ok?'Stored.':'Failed: '+u.why);
     if(u.ok)await stCmd([7,0,8,0x80,1,0,i+1],0x8008,1000).catch(()=>{});smpSave();SMP.busy=false;smpUi(u.ok?'Pad '+(i+1)+' stored.':'Pad '+(i+1)+' failed: '+u.why+'. If the strip stopped answering, switch it off and on, reconnect, and try again.');return u.ok}
   catch(e){SMP.busy=false;stLog('Sampler pad '+(i+1)+' stopped: '+((e&&e.message)||e));smpUi('Pad '+(i+1)+' stopped: '+((e&&e.message)||e));return false}}
 async function smpPlay(i){
